@@ -1,0 +1,58 @@
+package com.ole.turapp.controller;
+
+import com.ole.turapp.dto.GpxImportResponse;
+import com.ole.turapp.dto.RoutePointListResponse;
+import com.ole.turapp.dto.RouteResponse;
+import com.ole.turapp.dto.RouteWithPointsResponse;
+import com.ole.turapp.service.RouteService;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.io.IOException;
+import java.util.List;
+
+@RestController
+@RequestMapping("/api")
+public class RouteController {
+
+    private final RouteService routeService;
+
+    public RouteController(RouteService routeService) {
+        this.routeService = routeService;
+    }
+
+    /** Upload a GPX file; every {@code <rte>} in it becomes a route for the user. */
+    @PostMapping(value = "/users/{userId}/routes/import", consumes = "multipart/form-data")
+    public ResponseEntity<GpxImportResponse> importGpx(
+            @PathVariable Long userId,
+            @RequestParam("file") MultipartFile file) throws IOException {
+        if (file == null || file.isEmpty()) {
+            throw new IllegalArgumentException("Ingen fil ble lastet opp (feltet 'file' er tomt)");
+        }
+        GpxImportResponse response = routeService.importGpx(userId, file.getInputStream());
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    @GetMapping("/users/{userId}/routes")
+    public List<RouteResponse> getRoutes(@PathVariable Long userId) {
+        return routeService.getRoutesForUser(userId);
+    }
+
+    /** Alle rutene med punkter i én respons – for å tegne alt på kartet direkte. */
+    @GetMapping("/users/{userId}/routes/with-points")
+    public List<RouteWithPointsResponse> getRoutesWithPoints(@PathVariable Long userId) {
+        return routeService.getRoutesWithPointsForUser(userId);
+    }
+
+    @GetMapping("/routes/{routeId}/points")
+    public RoutePointListResponse getRoutePoints(@PathVariable Long routeId) {
+        return routeService.getPointsForRoute(routeId);
+    }
+}

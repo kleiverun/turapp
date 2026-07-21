@@ -1,15 +1,20 @@
 package com.ole.turapp.controller;
 
 import com.ole.turapp.dto.GpxImportResponse;
+import com.ole.turapp.dto.RouteCreateRequest;
 import com.ole.turapp.dto.RoutePointListResponse;
 import com.ole.turapp.dto.RouteResponse;
+import com.ole.turapp.dto.RouteUpdateRequest;
 import com.ole.turapp.dto.RouteWithPointsResponse;
 import com.ole.turapp.service.RouteService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -38,6 +43,31 @@ public class RouteController {
         }
         GpxImportResponse response = routeService.importGpx(userId, file.getInputStream());
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    /** Oppretter en rute fra JSON — brukes av web-planleggeren. */
+    @PostMapping("/users/{userId}/routes")
+    public ResponseEntity<RouteResponse> createRoute(
+            @PathVariable Long userId,
+            @RequestBody RouteCreateRequest request) {
+        RouteResponse response = routeService.createRoute(userId, request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    @PatchMapping("/users/{userId}/routes/{routeId}")
+    public RouteResponse updateRoute(
+            @PathVariable Long userId,
+            @PathVariable Long routeId,
+            @RequestBody RouteUpdateRequest request) {
+        return routeService.updateRoute(userId, routeId, request);
+    }
+
+    @DeleteMapping("/users/{userId}/routes/{routeId}")
+    public ResponseEntity<Void> deleteRoute(
+            @PathVariable Long userId,
+            @PathVariable Long routeId) {
+        routeService.deleteRoute(userId, routeId);
+        return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/users/{userId}/routes")

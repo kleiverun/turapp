@@ -8,9 +8,11 @@ import com.ole.turapp.model.Trip;
 import com.ole.turapp.model.User;
 import com.ole.turapp.model.Visibility;
 import com.ole.turapp.exception.NotFoundException;
+import com.ole.turapp.repository.TrackPointRepository;
 import com.ole.turapp.repository.TripRepository;
 import com.ole.turapp.repository.UserRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.Arrays;
@@ -21,10 +23,13 @@ public class TripService {
 
     private final TripRepository tripRepository;
     private final UserRepository userRepository;
+    private final TrackPointRepository trackPointRepository;
 
-    public TripService(TripRepository tripRepository, UserRepository userRepository) {
+    public TripService(TripRepository tripRepository, UserRepository userRepository,
+                       TrackPointRepository trackPointRepository) {
         this.tripRepository = tripRepository;
         this.userRepository = userRepository;
+        this.trackPointRepository = trackPointRepository;
     }
 
     public TripResponse createTrip(Long userId, TripCreateRequest request) {
@@ -86,6 +91,13 @@ public class TripService {
         }
         trip.setEndedAt(Instant.now());
         return toResponse(tripRepository.save(trip));
+    }
+
+    @Transactional
+    public void deleteTrip(Long tripId) {
+        Trip trip = findTrip(tripId);
+        trackPointRepository.deleteByTripId(tripId);
+        tripRepository.delete(trip);
     }
 
     private Trip findTrip(Long tripId) {

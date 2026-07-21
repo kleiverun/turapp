@@ -7,6 +7,7 @@ import com.ole.turapp.dto.TripUpdateRequest;
 import com.ole.turapp.service.TripService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -51,6 +52,12 @@ public class TripController {
             @PathVariable Long tripId,
             @RequestBody TripUpdateRequest request) {
         return tripService.updateTrip(tripId, request);
+    }
+
+    @DeleteMapping("/{tripId}")
+    public ResponseEntity<Void> deleteTrip(@PathVariable Long userId, @PathVariable Long tripId) {
+        tripService.deleteTrip(tripId);
+        return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/{tripId}/end")

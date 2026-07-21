@@ -12,4 +12,6 @@ public interface RoutePointRepository extends JpaRepository<RoutePoint, Long> {
     List<RoutePoint> findByRouteUserIdOrderByRouteIdAscPointOrderAsc(Long userId);
 
     int countByRouteId(Long routeId);
+
+    void deleteByRouteId(Long routeId);
 }

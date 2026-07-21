@@ -1,5 +1,6 @@
 package com.ole.turapp.service;
 
+import com.ole.turapp.dto.LoginRequest;
 import com.ole.turapp.dto.UserRegistrationRequest;
 import com.ole.turapp.dto.UserResponse;
 import com.ole.turapp.exception.NotFoundException;
@@ -40,6 +41,23 @@ public class UserService {
         User user = new User(email, passwordHash, request.displayName().trim(), Role.USER);
 
         return toResponse(userRepository.save(user));
+    }
+
+    /** Verifiserer e-post + passord og returnerer brukeren. Samme feilmelding uansett årsak. */
+    public UserResponse login(LoginRequest request) {
+        if (request.email() == null || request.email().isBlank()
+                || request.password() == null || request.password().isBlank()) {
+            throw new IllegalArgumentException("E-post og passord er påkrevd");
+        }
+
+        String email = request.email().trim().toLowerCase();
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new IllegalArgumentException("Feil e-post eller passord"));
+
+        if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {
+            throw new IllegalArgumentException("Feil e-post eller passord");
+        }
+        return toResponse(user);
     }
 
     public UserResponse getUser(Long userId) {

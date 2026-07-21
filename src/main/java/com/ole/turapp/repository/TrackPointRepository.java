@@ -6,4 +6,6 @@ import java.util.List;
 
 public interface TrackPointRepository extends JpaRepository<TrackPoint, Long> {
     List<TrackPoint> findByTripIdOrderByTimestampAsc(Long tripId);
+
+    void deleteByTripId(Long tripId);
 }

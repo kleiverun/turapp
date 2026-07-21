@@ -30,8 +30,8 @@ public class TrackPoint {
     @Column(nullable = false)
     private double longitude;
 
-    //Commented out for simplicity in this interation: 12.07.26
-    //private double altitudeMeters;
+    /** Høyde over havet i meter (fra GPS). Nullable — eldre punkter mangler høyde. */
+    private Double altitude;
 
     @Column(nullable = false)
     private Instant timestamp;
@@ -73,15 +73,14 @@ public class TrackPoint {
     public void setLongitude(double longitude) {
         this.longitude = longitude;
     }
-/*Commented out but might add later
-    public double getAltitudeMeters() {
-        return altitudeMeters;
+    public Double getAltitude() {
+        return altitude;
     }
 
-    public void setAltitudeMeters(double altitudeMeters) {
-        this.altitudeMeters = altitudeMeters;
+    public void setAltitude(Double altitude) {
+        this.altitude = altitude;
     }
-*/
+
     public Instant getTimestamp() {
         return timestamp;
     }

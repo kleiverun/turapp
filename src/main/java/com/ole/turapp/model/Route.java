@@ -40,6 +40,10 @@ public class Route {
     @Column(nullable = false)
     private Visibility visibility = Visibility.PRIVATE;
 
+    /** Nullable i DB for eksisterende rader; behandles som PLANNED når null. */
+    @Enumerated(EnumType.STRING)
+    private RouteSource source = RouteSource.PLANNED;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
@@ -96,5 +100,13 @@ public class Route {
 
     public Instant getCreatedAt() {
         return createdAt;
+    }
+
+    public RouteSource getSource() {
+        return source;
+    }
+
+    public void setSource(RouteSource source) {
+        this.source = source;
     }
 }

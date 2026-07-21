@@ -1,5 +1,6 @@
 package com.ole.turapp.controller;
 
+import com.ole.turapp.dto.LoginRequest;
 import com.ole.turapp.dto.UserRegistrationRequest;
 import com.ole.turapp.dto.UserResponse;
 import com.ole.turapp.service.UserService;
@@ -26,6 +27,11 @@ public class UserController {
     public ResponseEntity<UserResponse> register(@RequestBody UserRegistrationRequest request) {
         UserResponse response = userService.register(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    @PostMapping("/login")
+    public UserResponse login(@RequestBody LoginRequest request) {
+        return userService.login(request);
     }
 
     @GetMapping("/{userId}")

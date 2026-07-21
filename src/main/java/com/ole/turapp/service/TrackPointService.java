@@ -59,19 +59,22 @@ public class TrackPointService {
             throw new IllegalArgumentException(
                     "Trackpoint mangler påkrevd felt: latitude, longitude og recordedAt kan ikke være null");
         }
-        return new TrackPoint(
+        TrackPoint point = new TrackPoint(
                 trip,
                 data.latitude(),
                 data.longitude(),
                 data.recordedAt()
         );
+        point.setAltitude(data.altitude());
+        return point;
     }
 
     private TrackPointData toData(TrackPoint point) {
         return new TrackPointData(
                 point.getLatitude(),
                 point.getLongitude(),
-                point.getTimestamp()
+                point.getTimestamp(),
+                point.getAltitude()
         );
     }
 }

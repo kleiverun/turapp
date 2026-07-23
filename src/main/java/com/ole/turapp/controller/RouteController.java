@@ -1,5 +1,6 @@
 package com.ole.turapp.controller;
 
+import com.ole.turapp.config.AuthUtils;
 import com.ole.turapp.dto.GpxImportResponse;
 import com.ole.turapp.dto.RouteCreateRequest;
 import com.ole.turapp.dto.RoutePointListResponse;
@@ -33,25 +34,23 @@ public class RouteController {
         this.routeService = routeService;
     }
 
-    /** Upload a GPX file; every {@code <rte>} in it becomes a route for the user. */
     @PostMapping(value = "/users/{userId}/routes/import", consumes = "multipart/form-data")
     public ResponseEntity<GpxImportResponse> importGpx(
             @PathVariable Long userId,
             @RequestParam("file") MultipartFile file) throws IOException {
+        AuthUtils.requireOwner(userId);
         if (file == null || file.isEmpty()) {
             throw new IllegalArgumentException("Ingen fil ble lastet opp (feltet 'file' er tomt)");
         }
-        GpxImportResponse response = routeService.importGpx(userId, file.getInputStream());
-        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+        return ResponseEntity.status(HttpStatus.CREATED).body(routeService.importGpx(userId, file.getInputStream()));
     }
 
-    /** Oppretter en rute fra JSON — brukes av web-planleggeren. */
     @PostMapping("/users/{userId}/routes")
     public ResponseEntity<RouteResponse> createRoute(
             @PathVariable Long userId,
             @RequestBody RouteCreateRequest request) {
-        RouteResponse response = routeService.createRoute(userId, request);
-        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+        AuthUtils.requireOwner(userId);
+        return ResponseEntity.status(HttpStatus.CREATED).body(routeService.createRoute(userId, request));
     }
 
     @PatchMapping("/users/{userId}/routes/{routeId}")
@@ -59,6 +58,7 @@ public class RouteController {
             @PathVariable Long userId,
             @PathVariable Long routeId,
             @RequestBody RouteUpdateRequest request) {
+        AuthUtils.requireOwner(userId);
         return routeService.updateRoute(userId, routeId, request);
     }
 
@@ -66,18 +66,20 @@ public class RouteController {
     public ResponseEntity<Void> deleteRoute(
             @PathVariable Long userId,
             @PathVariable Long routeId) {
+        AuthUtils.requireOwner(userId);
         routeService.deleteRoute(userId, routeId);
         return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/users/{userId}/routes")
     public List<RouteResponse> getRoutes(@PathVariable Long userId) {
+        AuthUtils.requireOwner(userId);
         return routeService.getRoutesForUser(userId);
     }
 
-    /** Alle rutene med punkter i én respons – for å tegne alt på kartet direkte. */
     @GetMapping("/users/{userId}/routes/with-points")
     public List<RouteWithPointsResponse> getRoutesWithPoints(@PathVariable Long userId) {
+        AuthUtils.requireOwner(userId);
         return routeService.getRoutesWithPointsForUser(userId);
     }
 

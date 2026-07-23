@@ -1,5 +1,6 @@
 package com.ole.turapp.controller;
 
+import com.ole.turapp.config.AuthUtils;
 import com.ole.turapp.dto.TripCreateRequest;
 import com.ole.turapp.dto.TripEndRequest;
 import com.ole.turapp.dto.TripResponse;
@@ -32,17 +33,19 @@ public class TripController {
     public ResponseEntity<TripResponse> createTrip(
             @PathVariable Long userId,
             @RequestBody TripCreateRequest request) {
-        TripResponse response = tripService.createTrip(userId, request);
-        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+        AuthUtils.requireOwner(userId);
+        return ResponseEntity.status(HttpStatus.CREATED).body(tripService.createTrip(userId, request));
     }
 
     @GetMapping
     public List<TripResponse> getTrips(@PathVariable Long userId) {
+        AuthUtils.requireOwner(userId);
         return tripService.getTripsForUser(userId);
     }
 
     @GetMapping("/{tripId}")
     public TripResponse getTrip(@PathVariable Long userId, @PathVariable Long tripId) {
+        AuthUtils.requireOwner(userId);
         return tripService.getTrip(tripId);
     }
 
@@ -51,11 +54,13 @@ public class TripController {
             @PathVariable Long userId,
             @PathVariable Long tripId,
             @RequestBody TripUpdateRequest request) {
+        AuthUtils.requireOwner(userId);
         return tripService.updateTrip(tripId, request);
     }
 
     @DeleteMapping("/{tripId}")
     public ResponseEntity<Void> deleteTrip(@PathVariable Long userId, @PathVariable Long tripId) {
+        AuthUtils.requireOwner(userId);
         tripService.deleteTrip(tripId);
         return ResponseEntity.noContent().build();
     }
@@ -65,6 +70,7 @@ public class TripController {
             @PathVariable Long userId,
             @PathVariable Long tripId,
             @RequestBody TripEndRequest request) {
+        AuthUtils.requireOwner(userId);
         return tripService.endTrip(tripId, request);
     }
 }

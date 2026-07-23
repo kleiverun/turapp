@@ -2,6 +2,7 @@ package com.ole.turapp.exception;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
@@ -20,13 +21,14 @@ public class GlobalExceptionHandler {
         return build(HttpStatus.BAD_REQUEST, ex.getMessage());
     }
 
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ApiError> handleAccessDenied(AccessDeniedException ex) {
+        return build(HttpStatus.FORBIDDEN, "Access denied");
+    }
+
     private ResponseEntity<ApiError> build(HttpStatus status, String message) {
-        ApiError body = new ApiError(
-                Instant.now(),
-                status.value(),
-                status.getReasonPhrase(),
-                message
+        return ResponseEntity.status(status).body(
+                new ApiError(Instant.now(), status.value(), status.getReasonPhrase(), message)
         );
-        return ResponseEntity.status(status).body(body);
     }
 }

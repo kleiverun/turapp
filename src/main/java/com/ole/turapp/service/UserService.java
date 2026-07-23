@@ -1,6 +1,8 @@
 package com.ole.turapp.service;
 
+import com.ole.turapp.config.JwtService;
 import com.ole.turapp.dto.LoginRequest;
+import com.ole.turapp.dto.LoginResponse;
 import com.ole.turapp.dto.UserRegistrationRequest;
 import com.ole.turapp.dto.UserResponse;
 import com.ole.turapp.exception.NotFoundException;
@@ -15,13 +17,15 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final JwtService jwtService;
 
-    public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder) {
+    public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder, JwtService jwtService) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
+        this.jwtService = jwtService;
     }
 
-    public UserResponse register(UserRegistrationRequest request) {
+    public LoginResponse register(UserRegistrationRequest request) {
         if (request.email() == null || request.email().isBlank()) {
             throw new IllegalArgumentException("E-post er påkrevd");
         }
@@ -37,14 +41,12 @@ public class UserService {
             throw new IllegalArgumentException("E-post er allerede registrert");
         }
 
-        String passwordHash = passwordEncoder.encode(request.password());
-        User user = new User(email, passwordHash, request.displayName().trim(), Role.USER);
-
-        return toResponse(userRepository.save(user));
+        User user = new User(email, passwordEncoder.encode(request.password()), request.displayName().trim(), Role.USER);
+        user = userRepository.save(user);
+        return toLoginResponse(user);
     }
 
-    /** Verifiserer e-post + passord og returnerer brukeren. Samme feilmelding uansett årsak. */
-    public UserResponse login(LoginRequest request) {
+    public LoginResponse login(LoginRequest request) {
         if (request.email() == null || request.email().isBlank()
                 || request.password() == null || request.password().isBlank()) {
             throw new IllegalArgumentException("E-post og passord er påkrevd");
@@ -57,22 +59,17 @@ public class UserService {
         if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {
             throw new IllegalArgumentException("Feil e-post eller passord");
         }
-        return toResponse(user);
+        return toLoginResponse(user);
     }
 
     public UserResponse getUser(Long userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new NotFoundException("Fant ikke bruker med id " + userId));
-        return toResponse(user);
+        return new UserResponse(user.getId(), user.getEmail(), user.getDisplayName(), user.getRole().name(), user.getCreatedAt());
     }
 
-    private UserResponse toResponse(User user) {
-        return new UserResponse(
-                user.getId(),
-                user.getEmail(),
-                user.getDisplayName(),
-                user.getRole().name(),
-                user.getCreatedAt()
-        );
+    private LoginResponse toLoginResponse(User user) {
+        String token = jwtService.generate(user.getId());
+        return new LoginResponse(user.getId(), user.getEmail(), user.getDisplayName(), user.getRole().name(), user.getCreatedAt(), token);
     }
 }

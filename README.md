@@ -1,6 +1,6 @@
 # turapp — backend
 
-Spring Boot REST API for the turapp trip-tracking application. Handles users, trips, trackpoints, and planned routes. Pairs with the [Android frontend](https://github.com/kleiverun/turappfront).
+Spring Boot REST API for the turapp trip-tracking application. Handles users, trips, trackpoints, planned routes, and map overlays (national parks and nature reserves). Pairs with the React web frontend (`turapp-web/`) and the [Android frontend](https://github.com/kleiverun/turappfront).
 
 ## Tech stack
 
@@ -8,32 +8,37 @@ Spring Boot REST API for the turapp trip-tracking application. Handles users, tr
 |---|---|
 | Language | Java 25 |
 | Framework | Spring Boot 4.1.0 |
-| Security | Spring Security (`permitAll` — no auth yet) |
+| Security | Spring Security + JWT |
 | Database | MySQL (JPA / Hibernate) |
 | Build tool | Maven |
-| Extra | GPX file import, WebSocket support |
+| Extra | GPX file import, national parks & nature reserves from Miljødirektoratet |
 
 ## Project structure
 
 ```
 src/main/java/com/ole/turapp/
 ├── controller/
-│   ├── UserController.java        # POST /api/users
-│   ├── TripController.java        # CRUD under /api/users/{userId}/trips
-│   ├── TrackPointController.java  # POST /api/trackpoints, GET /api/trips/{id}/trackpoints
-│   └── RouteController.java       # Planned routes + GPX import
+│   ├── UserController.java              # POST /api/users, POST /api/users/login
+│   ├── TripController.java              # CRUD under /api/users/{userId}/trips
+│   ├── TrackPointController.java        # POST /api/trackpoints, GET /api/trips/{id}/trackpoints
+│   ├── RouteController.java             # Planned routes + GPX import
+│   ├── NationalParkController.java      # GET /api/national-parks
+│   └── NatureReserveController.java     # GET /api/nature-reserves
 ├── service/
 │   ├── UserService.java
 │   ├── TripService.java
 │   ├── TrackPointService.java
 │   ├── RouteService.java
-│   └── GpxRouteParser.java        # Parses GPX <rte> elements into routes
-├── model/                         # JPA entities: User, Trip, TrackPoint, Route, RoutePoint
-├── repository/                    # Spring Data repositories
-├── dto/                           # Request/response DTOs
-├── exception/                     # GlobalExceptionHandler, NotFoundException, ApiError
+│   ├── GpxRouteParser.java              # Parses GPX <rte> elements into routes
+│   ├── NationalParkService.java         # Imports/serves national park polygons
+│   └── NatureReserveService.java        # Imports/serves nature reserve polygons (paginated)
+├── model/                               # JPA entities
+├── repository/                          # Spring Data repositories
+├── dto/                                 # Request/response DTOs
+├── exception/                           # GlobalExceptionHandler, NotFoundException, ApiError
 └── config/
-    └── SecurityConfig.java        # permitAll (no auth yet)
+    ├── SecurityConfig.java              # JWT filter chain; public: login, register, map overlays
+    └── JwtAuthFilter.java
 ```
 
 ## API endpoints
@@ -42,6 +47,7 @@ src/main/java/com/ole/turapp/
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | `POST` | `/api/users` | Register a user |
+| `POST` | `/api/users/login` | Log in — returns JWT token |
 
 ### Trips
 | Method | Endpoint | Description |
@@ -51,7 +57,7 @@ src/main/java/com/ole/turapp/
 | `GET`  | `/api/users/{userId}/trips/{tripId}` | Get a single trip |
 | `PATCH`| `/api/users/{userId}/trips/{tripId}` | Update a trip |
 | `DELETE`| `/api/users/{userId}/trips/{tripId}` | Delete a trip |
-| `POST` | `/api/users/{userId}/trips/{tripId}/end` | End a trip (records duration/distance) |
+| `POST` | `/api/users/{userId}/trips/{tripId}/end` | End a trip |
 
 ### Trackpoints
 | Method | Endpoint | Description |
@@ -62,13 +68,21 @@ src/main/java/com/ole/turapp/
 ### Planned routes
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `POST` | `/api/users/{userId}/routes` | Create a route (JSON) |
-| `POST` | `/api/users/{userId}/routes/import` | Import routes from a GPX file |
-| `GET`  | `/api/users/{userId}/routes` | List routes for a user |
-| `GET`  | `/api/users/{userId}/routes/with-points` | List routes with all their points |
+| `POST` | `/api/users/{userId}/routes` | Create a route |
+| `POST` | `/api/users/{userId}/routes/import` | Import from GPX |
+| `GET`  | `/api/users/{userId}/routes` | List routes |
+| `GET`  | `/api/users/{userId}/routes/with-points` | List routes with points |
 | `GET`  | `/api/routes/{routeId}/points` | Get points for a route |
 | `PATCH`| `/api/users/{userId}/routes/{routeId}` | Update a route |
 | `DELETE`| `/api/users/{userId}/routes/{routeId}` | Delete a route |
+
+### Map overlays (public)
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET`  | `/api/national-parks` | All national park polygons |
+| `GET`  | `/api/national-parks/import` | Re-fetch from Miljødirektoratet |
+| `GET`  | `/api/nature-reserves` | All nature reserve polygons |
+| `GET`  | `/api/nature-reserves/import` | Re-fetch from Miljødirektoratet (paginated, ~2700 reserves) |
 
 ## Running locally
 
@@ -97,6 +111,8 @@ src/main/java/com/ole/turapp/
 
    spring.servlet.multipart.max-file-size=25MB
    spring.servlet.multipart.max-request-size=25MB
+
+   app.jwt.secret=your_jwt_secret
    ```
 
 3. Build and run:
@@ -104,16 +120,10 @@ src/main/java/com/ole/turapp/
    ./mvnw spring-boot:run
    ```
 
-   The server starts on port `8080`.
+   The server starts on port `8080`. National parks and nature reserves are fetched from Miljødirektoratet automatically on first startup.
 
 ### Android emulator
 The emulator reaches the host machine's localhost at `http://10.0.2.2:8080/`.
 
 ### Physical Android device
 The device must be on the same Wi-Fi as the PC. Use the PC's LAN IP, e.g. `http://192.168.0.207:8080/`. Allow inbound TCP port 8080 in Windows Firewall.
-
-## Known limitations / future work
-
-- No authentication — all endpoints use `permitAll`. JWT-based auth is planned.
-- No background job for cleaning up orphaned data.
-- GPX import only handles `<rte>` elements (not `<trk>`).

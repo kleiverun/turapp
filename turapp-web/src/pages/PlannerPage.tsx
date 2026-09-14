@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { MapContainer, Polygon, Polyline, CircleMarker, Tooltip, useMapEvents } from 'react-leaflet';
 import { useNavigate } from 'react-router-dom';
 import type { LatLng } from '../api/types';
-import { createRoute } from '../api/routes';
+import { createRoute, getTerrainRoute } from '../api/routes';
 import { listTrips } from '../api/trips';
 import { listNationalParks, type NationalPark } from '../api/nationalParks';
 import { listNatureReserves, type NatureReserve } from '../api/natureReserves';
@@ -46,6 +46,14 @@ export function PlannerPage() {
   const [nationalParks, setNationalParks] = useState<NationalPark[]>([]);
   const [natureReserves, setNatureReserves] = useState<NatureReserve[]>([]);
 
+  const [terrainMode, setTerrainMode] = useState(false);
+  const [terrainPath, setTerrainPath] = useState<LatLng[]>([]);
+  const [terrainDistance, setTerrainDistance] = useState(0);
+  const [terrainAscent, setTerrainAscent] = useState(0);
+  const [terrainDescent, setTerrainDescent] = useState(0);
+  const [terrainLoading, setTerrainLoading] = useState(false);
+  const [terrainError, setTerrainError] = useState<string | null>(null);
+
   useEffect(() => {
     if (!user) return;
     listTrips(user.id)
@@ -63,8 +71,53 @@ export function PlannerPage() {
     listNatureReserves().then(setNatureReserves).catch(() => {});
   }, []);
 
+  useEffect(() => {
+    if (!terrainMode || waypoints.length < 2) {
+      setTerrainPath([]);
+      setTerrainDistance(0);
+      setTerrainAscent(0);
+      setTerrainDescent(0);
+      return;
+    }
+    let cancelled = false;
+    setTerrainLoading(true);
+    setTerrainError(null);
+
+    async function fetchSegments() {
+      try {
+        const segments = await Promise.all(
+          waypoints.slice(0, -1).map((wp, i) =>
+            getTerrainRoute(wp.latitude, wp.longitude, waypoints[i + 1].latitude, waypoints[i + 1].longitude),
+          ),
+        );
+        if (cancelled) return;
+        const fullPath: LatLng[] = [];
+        let dist = 0, asc = 0, desc = 0;
+        for (let i = 0; i < segments.length; i++) {
+          const pts = i === 0 ? segments[i].points : segments[i].points.slice(1);
+          fullPath.push(...pts);
+          dist += segments[i].distanceMeters;
+          asc  += segments[i].ascentMeters;
+          desc += segments[i].descentMeters;
+        }
+        setTerrainPath(fullPath);
+        setTerrainDistance(dist);
+        setTerrainAscent(asc);
+        setTerrainDescent(desc);
+      } catch (err) {
+        if (!cancelled) setTerrainError(errorMessage(err));
+      } finally {
+        if (!cancelled) setTerrainLoading(false);
+      }
+    }
+
+    fetchSegments();
+    return () => { cancelled = true; };
+  }, [terrainMode, waypoints]);
+
   const activity = ACTIVITY_TYPES.find((a) => a.key === activityKey) ?? ACTIVITY_TYPES[0];
-  const distance = useMemo(() => totalDistanceMeters(waypoints), [waypoints]);
+  const straightDistance = useMemo(() => totalDistanceMeters(waypoints), [waypoints]);
+  const distance = terrainMode && terrainPath.length > 0 ? terrainDistance : straightDistance;
   const seconds = estimatedSeconds(distance, activity, personal);
   const paceMps = effectivePaceMps(activity, personal);
 
@@ -81,7 +134,8 @@ export function PlannerPage() {
     setSaving(true);
     setError(null);
     try {
-      await createRoute(user.id, name.trim(), notes.trim() || null, waypoints);
+      const points = terrainMode && terrainPath.length > 0 ? terrainPath : waypoints;
+      await createRoute(user.id, name.trim(), notes.trim() || null, points);
       navigate('/routes');
     } catch (err) {
       setError(errorMessage(err));
@@ -109,6 +163,18 @@ export function PlannerPage() {
           ))}
         </div>
 
+        <div className="chip-row">
+          <button
+            className={terrainMode ? 'chip chip-active' : 'chip'}
+            onClick={() => setTerrainMode((m) => !m)}
+          >
+            Terreng-ruting
+          </button>
+          {terrainMode && terrainLoading && (
+            <span className="muted small" style={{ alignSelf: 'center' }}>Beregner…</span>
+          )}
+        </div>
+
         <div className="stats-grid">
           <div className="stat">
             <span className="stat-label">Distanse</span>
@@ -122,7 +188,21 @@ export function PlannerPage() {
             <span className="stat-label">Tempo</span>
             <span className="stat-value">{formatPace(paceMps)}</span>
           </div>
+          {terrainMode && terrainPath.length > 0 && (
+            <>
+              <div className="stat">
+                <span className="stat-label">Stigning</span>
+                <span className="stat-value">{Math.round(terrainAscent)} m</span>
+              </div>
+              <div className="stat">
+                <span className="stat-label">Fall</span>
+                <span className="stat-value">{Math.round(terrainDescent)} m</span>
+              </div>
+            </>
+          )}
         </div>
+
+        {terrainError && <p className="error-text">{terrainError}</p>}
 
         <p className="muted small">
           {waypoints.length} veipunkter
@@ -206,7 +286,21 @@ export function PlannerPage() {
             </Polygon>
           ))}
           {positions.length > 1 && (
-            <Polyline positions={positions} pathOptions={{ color: '#1E88E5', weight: 5 }} />
+            <Polyline
+              positions={positions}
+              pathOptions={{
+                color: '#1E88E5',
+                weight: terrainMode ? 2 : 5,
+                opacity: terrainMode ? 0.35 : 1,
+                dashArray: terrainMode ? '6 6' : undefined,
+              }}
+            />
+          )}
+          {terrainMode && terrainPath.length > 1 && (
+            <Polyline
+              positions={terrainPath.map((p) => [p.latitude, p.longitude] as [number, number])}
+              pathOptions={{ color: '#E65100', weight: 5 }}
+            />
           )}
           {positions.map((pos, i) => (
             <CircleMarker

@@ -41,3 +41,20 @@ export async function updateRoute(
 export async function deleteRoute(userId: number, routeId: number): Promise<void> {
   await api.delete(`/users/${userId}/routes/${routeId}`);
 }
+
+export interface TerrainSegment {
+  points: LatLng[];
+  distanceMeters: number;
+  ascentMeters: number;
+  descentMeters: number;
+}
+
+export async function getTerrainRoute(
+  fromLat: number,
+  fromLon: number,
+  toLat: number,
+  toLon: number,
+): Promise<TerrainSegment> {
+  const res = await api.post<TerrainSegment>('/route/terrain', { fromLat, fromLon, toLat, toLon });
+  return res.data;
+}

@@ -83,7 +83,7 @@ class UserServiceTest {
     }
     @Test
     void testRegisterUser_BlankEmail_ThrowsException() {
-        UserRegistrationRequest request = validRequest("", "gyldigPassord123", "Ole Kristian");
+        UserRegistrationRequest request = validRequest("", "validPassword123", "Ole Kristian");
 
         assertThatThrownBy(() -> userService.register(request))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -101,7 +101,7 @@ class UserServiceTest {
 
     @Test
     void testRegisterUser_BlankDisplayName_ThrowsException() {
-        UserRegistrationRequest request = validRequest("ole@example.com", "gyldigPassord123", "");
+        UserRegistrationRequest request = validRequest("ole@example.com", "validPassword123", "");
 
         assertThatThrownBy(() -> userService.register(request))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -110,7 +110,7 @@ class UserServiceTest {
 
     @Test
     void testRegisterUser_EmailAlreadyRegistered_ThrowsException() {
-        UserRegistrationRequest request = validRequest("ole@example.com", "gyldigPassord123", "Ole Kristian");
+        UserRegistrationRequest request = validRequest("ole@example.com", "validPassword123", "Ole Kristian");
         when(userRepository.existsByEmail("ole@example.com")).thenReturn(true);
 
         assertThatThrownBy(() -> userService.register(request))
@@ -145,13 +145,13 @@ class UserServiceTest {
     void testLoginUser_WrongPassword_ThrowsException() {
         // Arrange
         String email = "email@gmail.com";
-        String storedPasswordHash = "encodedHashHer"; // representerer et allerede enkodet passord
+        String storedPasswordHash = "encodedHashHere"; // represents an already-encoded password
         User existingUser = new User(email, storedPasswordHash, "testUsername", Role.USER);
 
         when(userRepository.findByEmail(email)).thenReturn(Optional.of(existingUser));
-        when(passwordEncoder.matches("feilPassord123", storedPasswordHash)).thenReturn(false);
+        when(passwordEncoder.matches("wrongPassword123", storedPasswordHash)).thenReturn(false);
 
-        LoginRequest request = loginRequest(email, "feilPassord123");
+        LoginRequest request = loginRequest(email, "wrongPassword123");
 
         // Act & Assert
         assertThatThrownBy(() -> userService.login(request))

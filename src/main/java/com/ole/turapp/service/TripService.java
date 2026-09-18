@@ -34,7 +34,7 @@ public class TripService {
 
     public TripResponse createTrip(Long userId, TripCreateRequest request) {
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new NotFoundException("Fant ikke bruker med id " + userId));
+                .orElseThrow(() -> new NotFoundException("Did not find user"));
 
         Trip trip = new Trip();
         trip.setUser(user);
@@ -75,17 +75,17 @@ public class TripService {
     public TripResponse endTrip(Long tripId, TripEndRequest request) {
         Trip trip = findTrip(tripId);
         if (trip.getEndedAt() != null) {
-            throw new IllegalArgumentException("Turen er allerede avsluttet");
+            throw new IllegalArgumentException("Trip has already ended");
         }
         if (request.distanceMeters() != null) {
             if (request.distanceMeters() < 0) {
-                throw new IllegalArgumentException("distanceMeters kan ikke være negativ");
+                throw new IllegalArgumentException("distanceMeters cannot be negative");
             }
             trip.setDistanceMeters(request.distanceMeters());
         }
         if (request.durationSeconds() != null) {
             if (request.durationSeconds() < 0) {
-                throw new IllegalArgumentException("durationSeconds kan ikke være negativ");
+                throw new IllegalArgumentException("durationSeconds cannot be negative");
             }
             trip.setDurationSeconds(request.durationSeconds());
         }
@@ -102,7 +102,7 @@ public class TripService {
 
     private Trip findTrip(Long tripId) {
         return tripRepository.findById(tripId)
-                .orElseThrow(() -> new NotFoundException("Fant ikke tur med id " + tripId));
+                .orElseThrow(() -> new NotFoundException("Did not find a trip"));
     }
 
     private Visibility parseVisibility(String value) {
@@ -113,7 +113,7 @@ public class TripService {
             return Visibility.valueOf(value.trim().toUpperCase());
         } catch (IllegalArgumentException e) {
             throw new IllegalArgumentException(
-                    "Ugyldig visibility '" + value + "'. Tillatte verdier: " + Arrays.toString(Visibility.values()));
+                    "Invalid visibility '" + value + "'. Allowed values: " + Arrays.toString(Visibility.values()));
         }
     }
 

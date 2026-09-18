@@ -54,15 +54,15 @@ public class RouteService {
     @Transactional
     public GpxImportResponse importGpx(Long userId, InputStream gpx) {
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new NotFoundException("Fant ikke bruker med id " + userId));
+                .orElseThrow(() -> new NotFoundException("Did not find user with id " + userId));
 
         List<ParsedRoute> parsedRoutes = parse(gpx);
         if (parsedRoutes.isEmpty()) {
-            throw new IllegalArgumentException("GPX-filen inneholder ingen ruter (<rte>)");
+            throw new IllegalArgumentException("The GPX file contains no routes (<rte>)");
         }
 
-        // Signaturer for brukerens eksisterende GPX-ruter, slik at samme fil
-        // kan importeres flere ganger uten å lage duplikater.
+        // Signatures of the user's existing GPX routes, so the same file
+        // can be imported multiple times without creating duplicates.
         Set<String> existing = existingGpxSignatures(userId);
 
         List<RouteResponse> imported = new ArrayList<>();
@@ -73,7 +73,7 @@ public class RouteService {
                 continue;
             }
             if (!existing.add(gpxSignature(routeName(parsed), parsed.points()))) {
-                continue; // identisk rute finnes allerede
+                continue; // identical route already exists
             }
 
             Route route = new Route(routeName(parsed), user);
@@ -96,13 +96,13 @@ public class RouteService {
 
         if (imported.isEmpty()) {
             throw new IllegalArgumentException(
-                    "Ingen nye ruter å importere — alle rutene i filen finnes allerede (eller mangler punkter)");
+                    "No new routes to import — all routes in the file already exist (or are missing points)");
         }
 
         return new GpxImportResponse(imported.size(), totalPoints, imported);
     }
 
-    /** Signaturer (navn + antall punkter + start/slutt) for brukerens GPX-ruter. */
+    /** Signatures (name + point count + start/end) for the user's GPX routes. */
     private Set<String> existingGpxSignatures(Long userId) {
         Map<Long, List<RoutePoint>> pointsByRoute = new LinkedHashMap<>();
         for (RoutePoint p : routePointRepository.findByRouteUserIdOrderByRouteIdAscPointOrderAsc(userId)) {
@@ -136,8 +136,8 @@ public class RouteService {
     }
 
     /**
-     * Alle brukerens ruter med punktene inkludert, klare til å tegnes på kartet.
-     * Punktene hentes i én spørring og grupperes per rute.
+     * All of the user's routes with their points included, ready to be drawn on the map.
+     * Points are fetched in a single query and grouped per route.
      */
     public List<RouteWithPointsResponse> getRoutesWithPointsForUser(Long userId) {
         Map<Long, Route> routesById = new LinkedHashMap<>();
@@ -161,17 +161,17 @@ public class RouteService {
                 .toList();
     }
 
-    /** Oppretter en rute fra JSON (web-planleggeren) med punktene i innsendt rekkefølge. */
+    /** Creates a route from JSON (the web planner) with the points in submitted order. */
     @Transactional
     public RouteResponse createRoute(Long userId, RouteCreateRequest request) {
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new NotFoundException("Fant ikke bruker med id " + userId));
+                .orElseThrow(() -> new NotFoundException("Did not find user with id " + userId));
 
         if (request.name() == null || request.name().isBlank()) {
-            throw new IllegalArgumentException("Rutenavn er påkrevd");
+            throw new IllegalArgumentException("Route name is required");
         }
         if (request.points() == null || request.points().size() < 2) {
-            throw new IllegalArgumentException("En rute må ha minst 2 punkter");
+            throw new IllegalArgumentException("A route must have at least 2 points");
         }
 
         Route route = new Route(request.name().trim(), user);
@@ -210,9 +210,9 @@ public class RouteService {
 
     private Route requireOwnedRoute(Long userId, Long routeId) {
         Route route = routeRepository.findById(routeId)
-                .orElseThrow(() -> new NotFoundException("Fant ikke rute med id " + routeId));
+                .orElseThrow(() -> new NotFoundException("Did not find route with id " + routeId));
         if (!route.getUser().getId().equals(userId)) {
-            throw new NotFoundException("Fant ikke rute med id " + routeId);
+            throw new NotFoundException("Did not find route with id " + routeId);
         }
         return route;
     }
@@ -225,7 +225,7 @@ public class RouteService {
 
     public RoutePointListResponse getPointsForRoute(Long routeId) {
         if (!routeRepository.existsById(routeId)) {
-            throw new NotFoundException("Fant ikke rute med id " + routeId);
+            throw new NotFoundException("Did not find route with id " + routeId);
         }
         List<RoutePointData> points = routePointRepository.findByRouteIdOrderByPointOrderAsc(routeId).stream()
                 .map(p -> new RoutePointData(p.getPointOrder(), p.getLatitude(), p.getLongitude()))
@@ -237,13 +237,13 @@ public class RouteService {
         try (InputStream in = gpx) {
             return gpxRouteParser.parse(in);
         } catch (IOException e) {
-            throw new IllegalArgumentException("Kunne ikke lese GPX-filen: " + e.getMessage(), e);
+            throw new IllegalArgumentException("Could not read the GPX file: " + e.getMessage(), e);
         }
     }
 
     /** GPX route names are optional; fall back to a placeholder so the DB column stays non-null. */
     private String routeName(ParsedRoute parsed) {
-        return (parsed.name() != null && !parsed.name().isBlank()) ? parsed.name() : "Uten navn";
+        return (parsed.name() != null && !parsed.name().isBlank()) ? parsed.name() : "Unnamed";
     }
 
     private RouteResponse toResponse(Route route, int pointCount) {

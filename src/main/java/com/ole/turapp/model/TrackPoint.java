@@ -30,7 +30,7 @@ public class TrackPoint {
     @Column(nullable = false)
     private double longitude;
 
-    /** Høyde over havet i meter (fra GPS). Nullable — eldre punkter mangler høyde. */
+    /** Altitude above sea level in meters (from GPS). Nullable — older points lack altitude. */
     private Double altitude;
 
     @Column(nullable = false)

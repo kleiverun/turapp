@@ -3,9 +3,10 @@ package com.ole.turapp.dto;
 import java.util.List;
 
 /**
- * En rute med hele punktlinja inkludert. Brukes når klienten skal tegne
- * alle rutene på kartet i én forespørsel, i stedet for å hente punktene
- * rute for rute. {@code source} skiller planlagte ruter fra GPX-bakgrunnsnett.
+ * A route with the full point line included. Used when the client needs to
+ * draw all routes on the map in a single request, instead of fetching the
+ * points route by route. {@code source} distinguishes planned routes from
+ * GPX background trail networks.
  */
 public record RouteWithPointsResponse(
         Long id,

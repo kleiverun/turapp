@@ -40,7 +40,7 @@ public class RouteController {
             @RequestParam("file") MultipartFile file) throws IOException {
         AuthUtils.requireOwner(userId);
         if (file == null || file.isEmpty()) {
-            throw new IllegalArgumentException("Ingen fil ble lastet opp (feltet 'file' er tomt)");
+            throw new IllegalArgumentException("No file was uploaded (the 'file' field is empty)");
         }
         return ResponseEntity.status(HttpStatus.CREATED).body(routeService.importGpx(userId, file.getInputStream()));
     }

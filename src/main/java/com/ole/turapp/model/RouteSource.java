@@ -1,9 +1,10 @@
 package com.ole.turapp.model;
 
 /**
- * Hvor ruten kommer fra — styrer hvordan klientene viser den:
- * PLANNED-ruter vises i rutelisten og kan følges; GPX_IMPORT-ruter er
- * bakgrunnsnett (tur- og friluftsruter) som kun tegnes på kartet.
+ * Where the route comes from — controls how clients display it:
+ * PLANNED routes are shown in the route list and can be followed; GPX_IMPORT
+ * routes are background trail networks (hiking and outdoor trails) that are
+ * only drawn on the map.
  */
 public enum RouteSource {
     PLANNED,

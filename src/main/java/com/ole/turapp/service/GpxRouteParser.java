@@ -73,12 +73,12 @@ public class GpxRouteParser {
 
     private double parseCoord(String value, String attr) {
         if (value == null || value.isBlank()) {
-            throw new IllegalArgumentException("Rutepunkt mangler påkrevd attributt '" + attr + "'");
+            throw new IllegalArgumentException("Route point is missing required attribute '" + attr + "'");
         }
         try {
             return Double.parseDouble(value.trim());
         } catch (NumberFormatException e) {
-            throw new IllegalArgumentException("Ugyldig " + attr + "-verdi i rutepunkt: '" + value + "'");
+            throw new IllegalArgumentException("Invalid " + attr + " value in route point: '" + value + "'");
         }
     }
 
@@ -116,7 +116,7 @@ public class GpxRouteParser {
             document.getDocumentElement().normalize();
             return document;
         } catch (ParserConfigurationException | SAXException | IOException e) {
-            throw new IllegalArgumentException("Kunne ikke lese GPX-filen: " + e.getMessage(), e);
+            throw new IllegalArgumentException("Could not read the GPX file: " + e.getMessage(), e);
         }
     }
 }

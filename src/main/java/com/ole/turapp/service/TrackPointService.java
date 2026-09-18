@@ -25,10 +25,10 @@ public class TrackPointService {
 
     public TrackPointListResponse addPoints(TrackPointCreateRequest request) {
         Trip trip = tripRepository.findById(request.tripId())
-                .orElseThrow(() -> new NotFoundException("Fant ikke tur med id " + request.tripId()));
+                .orElseThrow(() -> new NotFoundException("Did not find trip with id " + request.tripId()));
 
         if (request.points() == null || request.points().isEmpty()) {
-            throw new IllegalArgumentException("Forespørselen må inneholde minst ett trackpoint");
+            throw new IllegalArgumentException("Request must contain at least one trackpoint");
         }
 
         List<TrackPoint> pointsToSave = request.points().stream()
@@ -57,7 +57,7 @@ public class TrackPointService {
     private TrackPoint toEntity(TrackPointData data, Trip trip) {
         if (data.latitude() == null || data.longitude() == null || data.recordedAt() == null) {
             throw new IllegalArgumentException(
-                    "Trackpoint mangler påkrevd felt: latitude, longitude og recordedAt kan ikke være null");
+                    "Trackpoint is missing a required field: latitude, longitude and recordedAt cannot be null");
         }
         TrackPoint point = new TrackPoint(
                 trip,

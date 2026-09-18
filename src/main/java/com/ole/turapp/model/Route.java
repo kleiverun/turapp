@@ -40,7 +40,7 @@ public class Route {
     @Column(nullable = false)
     private Visibility visibility = Visibility.PRIVATE;
 
-    /** Nullable i DB for eksisterende rader; behandles som PLANNED når null. */
+    /** Nullable in the DB for existing rows; treated as PLANNED when null. */
     @Enumerated(EnumType.STRING)
     private RouteSource source = RouteSource.PLANNED;
 

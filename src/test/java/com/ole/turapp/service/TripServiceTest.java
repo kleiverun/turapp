@@ -8,22 +8,27 @@ import com.ole.turapp.exception.NotFoundException;
 import com.ole.turapp.model.Role;
 import com.ole.turapp.model.Trip;
 import com.ole.turapp.model.User;
+import com.ole.turapp.model.Visibility;
 import com.ole.turapp.repository.TrackPointRepository;
 import com.ole.turapp.repository.TripRepository;
 import com.ole.turapp.repository.UserRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -78,9 +83,36 @@ class TripServiceTest {
         TripResponse response = tripService.createTrip(userId, request);
 
         // Assert
-        assertThat(response).isNotNull();
-        assertThat(response.id()).isNotNull();
-        assertThat(response.name()).isNotNull();
+        verify(userRepository).findById(userId);
+        ArgumentCaptor<Trip> tripCaptor = ArgumentCaptor.forClass(Trip.class);
+        verify(tripRepository).save(tripCaptor.capture());
+        Trip savedTrip = tripCaptor.getValue();
+        assertThat(savedTrip.getUser()).isEqualTo(existingUser);
+        assertThat(savedTrip.getStartedAt()).isNotNull();
+
+        assertThat(response.id()).isEqualTo(1L);
+        assertThat(response.name()).isEqualTo("Testtrip");
+        assertThat(response.notes()).isEqualTo("Notes of a test");
+        assertThat(response.visibility()).isEqualTo("PRIVATE");
+        assertThat(response.startedAt()).isNotNull();
+        assertThat(response.endedAt()).isNull();
+    }
+
+    @Test
+    void testCreateTrip_BlankVisibility_KeepsDefaultVisibility() {
+        // Arrange
+        Long userId = 1L;
+        User existingUser = new User("email@gmail.com", "hashedPassword", "user1", Role.USER);
+        TripCreateRequest request = new TripCreateRequest("Testtrip", "Notes", "  ");
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(existingUser));
+        when(tripRepository.save(any(Trip.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        // Act
+        TripResponse response = tripService.createTrip(userId, request);
+
+        // Assert
+        assertThat(response.visibility()).isEqualTo(Visibility.PRIVATE.name());
     }
 
     @Test
@@ -105,6 +137,20 @@ class TripServiceTest {
                 .extracting(TripResponse::name)
                 .containsExactly("TestTrip");
     }
+
+    @Test
+    void testGetTripsForUser_NoTrips_ReturnsEmptyList() {
+        // Arrange
+        Long userId = 1L;
+        when(tripRepository.findByUserId(userId)).thenReturn(Collections.emptyList());
+
+        // Act
+        List<TripResponse> allUsersTrips = tripService.getTripsForUser(userId);
+
+        // Assert
+        assertThat(allUsersTrips).isEmpty();
+    }
+
     @Test
     void testGetTrip_Success() {
         // Arrange
@@ -232,6 +278,29 @@ class TripServiceTest {
     }
 
     @Test
+    void testEndTrip_NullDistanceAndDuration_OnlySetsEndedAt() {
+        // Arrange
+        Long tripId = 1L;
+        Trip existingTrip = new Trip();
+        existingTrip.setId(tripId);
+        existingTrip.setDistanceMeters(1234.0);
+        existingTrip.setDurationSeconds(60L);
+
+        TripEndRequest request = new TripEndRequest(null, null);
+
+        when(tripRepository.findById(tripId)).thenReturn(Optional.of(existingTrip));
+        when(tripRepository.save(any(Trip.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        // Act
+        TripResponse response = tripService.endTrip(tripId, request);
+
+        // Assert
+        assertThat(response.distanceMeters()).isEqualTo(1234.0);
+        assertThat(response.durationSeconds()).isEqualTo(60L);
+        assertThat(response.endedAt()).isNotNull();
+    }
+
+    @Test
     void testEndTrip_AlreadyEnded_ThrowsException() {
         // Arrange
         Long tripId = 1L;
@@ -309,8 +378,9 @@ class TripServiceTest {
         tripService.deleteTrip(tripId);
 
         // Assert
-        verify(trackPointRepository).deleteByTripId(tripId);
-        verify(tripRepository).delete(existingTrip);
+        InOrder inOrder = inOrder(trackPointRepository, tripRepository);
+        inOrder.verify(trackPointRepository).deleteByTripId(tripId);
+        inOrder.verify(tripRepository).delete(existingTrip);
     }
 
     @Test

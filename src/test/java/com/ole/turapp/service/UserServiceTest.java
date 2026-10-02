@@ -4,22 +4,27 @@ import com.ole.turapp.config.JwtService;
 import com.ole.turapp.dto.LoginRequest;
 import com.ole.turapp.dto.LoginResponse;
 import com.ole.turapp.dto.UserRegistrationRequest;
+import com.ole.turapp.dto.UserResponse;
 import com.ole.turapp.exception.NotFoundException;
 import com.ole.turapp.model.Role;
 import com.ole.turapp.model.User;
 import com.ole.turapp.repository.UserRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.Optional;
 
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -51,15 +56,46 @@ class UserServiceTest {
         User savedUser = new User("email@gmail.com", "hashedPassword", "user1", Role.USER);
         when(passwordEncoder.encode("password123")).thenReturn("hashedPassword");
         when(userRepository.save(any(User.class))).thenReturn(savedUser);
+        when(jwtService.generate(isNull())).thenReturn("test-token");
 
         // Act
         LoginResponse response = userService.register(request);
 
         // Assert
+        verify(passwordEncoder).encode("password123");
+        ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
+        verify(userRepository).save(userCaptor.capture());
+        User userToSave = userCaptor.getValue();
+        assertThat(userToSave.getEmail()).isEqualTo("email@gmail.com");
+        assertThat(userToSave.getPasswordHash()).isEqualTo("hashedPassword");
+        assertThat(userToSave.getDisplayName()).isEqualTo("user1");
+        assertThat(userToSave.getRole()).isEqualTo(Role.USER);
+        verify(jwtService).generate(isNull());
+
         assertThat(response).isNotNull()
-         .extracting(LoginResponse::displayName, LoginResponse::email)
-        .containsExactly("user1", "email@gmail.com");
+         .extracting(LoginResponse::displayName, LoginResponse::email, LoginResponse::token)
+        .containsExactly("user1", "email@gmail.com", "test-token");
     }
+
+    @Test
+    void testRegisterUser_TrimsAndLowercasesEmail_TrimsDisplayName() {
+        // Arrange
+        UserRegistrationRequest request = validRequest(" Ole@EXAMPLE.com ", "password123", " Ole Kristian ");
+
+        when(passwordEncoder.encode("password123")).thenReturn("hashedPassword");
+        when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        // Act
+        userService.register(request);
+
+        // Assert
+        verify(userRepository).existsByEmail("ole@example.com");
+        ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
+        verify(userRepository).save(userCaptor.capture());
+        assertThat(userCaptor.getValue().getEmail()).isEqualTo("ole@example.com");
+        assertThat(userCaptor.getValue().getDisplayName()).isEqualTo("Ole Kristian");
+    }
+
     @Test
     void testLoginUser_Success() {
         // Arrange
@@ -70,6 +106,7 @@ class UserServiceTest {
 
         when(userRepository.findByEmail(email)).thenReturn(Optional.of(existingUser));
         when(passwordEncoder.matches(rawPassword, hashedPassword)).thenReturn(true);
+        when(jwtService.generate(isNull())).thenReturn("test-token");
 
         LoginRequest request = loginRequest(email, rawPassword);
 
@@ -77,9 +114,10 @@ class UserServiceTest {
         LoginResponse response = userService.login(request);
 
         // Assert
+        verify(jwtService).generate(isNull());
         assertThat(response).isNotNull()
-                .extracting(LoginResponse::displayName, LoginResponse::email)
-                .containsExactly("user1", email);
+                .extracting(LoginResponse::displayName, LoginResponse::email, LoginResponse::token)
+                .containsExactly("user1", email, "test-token");
     }
     @Test
     void testRegisterUser_BlankEmail_ThrowsException() {
@@ -133,10 +171,10 @@ class UserServiceTest {
     }
     @Test
     void testLoginUser_WrongEmail_ThrowsException(){
-    /*    User user = new User("email@gmail.com", "passwortest123", "testUsername", "USER");
-        user = userRepository.save(user);
-    */
-        LoginRequest request = loginRequest("password@empty.com","password123");
+        String email = "password@empty.com";
+        when(userRepository.findByEmail(email)).thenReturn(Optional.empty());
+
+        LoginRequest request = loginRequest(email, "password123");
         assertThatThrownBy(() -> userService.login(request))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("Wrong email or password");
@@ -168,5 +206,24 @@ class UserServiceTest {
         assertThatThrownBy(() -> userService.getUser(id))
                 .isInstanceOf(NotFoundException.class)
                 .hasMessage("Did not find user");
+    }
+
+    @Test
+    void testGetUser_Success() {
+        // Arrange
+        Long id = 1L;
+        User existingUser = new User("email@gmail.com", "hashedPassword", "user1", Role.USER);
+        ReflectionTestUtils.setField(existingUser, "id", id);
+
+        when(userRepository.findById(id)).thenReturn(Optional.of(existingUser));
+
+        // Act
+        UserResponse response = userService.getUser(id);
+
+        // Assert
+        assertThat(response.id()).isEqualTo(id);
+        assertThat(response.email()).isEqualTo("email@gmail.com");
+        assertThat(response.displayName()).isEqualTo("user1");
+        assertThat(response.role()).isEqualTo("USER");
     }
 }

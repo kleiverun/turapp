@@ -11,11 +11,13 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 
 import java.time.Instant;
 
 @Entity
-@Table(name = "trips")
+@Table(name = "trips", uniqueConstraints = @UniqueConstraint(
+        name = "uk_trips_user_garmin_activity", columnNames = {"user_id", "garmin_activity_id"}))
 public class Trip {
 
     @Id
@@ -39,6 +41,10 @@ public class Trip {
 
     private Instant startedAt;
     private Instant endedAt;
+
+    /** The Garmin Connect activity this trip was imported from; null for trips logged in the app. */
+    @Column(name = "garmin_activity_id")
+    private Long garminActivityId;
 
     public Trip() {
     }
@@ -116,5 +122,13 @@ public class Trip {
 
     public void setEndedAt(Instant endedAt) {
         this.endedAt = endedAt;
+    }
+
+    public Long getGarminActivityId() {
+        return garminActivityId;
+    }
+
+    public void setGarminActivityId(Long garminActivityId) {
+        this.garminActivityId = garminActivityId;
     }
 }

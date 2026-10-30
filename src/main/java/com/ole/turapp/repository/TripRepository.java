@@ -6,4 +6,5 @@ import java.util.List;
 
 public interface TripRepository extends JpaRepository<Trip, Long> {
     List<Trip> findByUserId(Long userId);
+    boolean existsByUserIdAndGarminActivityId(Long userId, Long garminActivityId);
 }

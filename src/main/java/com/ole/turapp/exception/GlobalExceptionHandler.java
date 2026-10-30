@@ -21,6 +21,16 @@ public class GlobalExceptionHandler {
         return build(HttpStatus.BAD_REQUEST, ex.getMessage());
     }
 
+    @ExceptionHandler(GarminUnavailableException.class)
+    public ResponseEntity<ApiError> handleGarminUnavailable(GarminUnavailableException ex) {
+        return build(HttpStatus.SERVICE_UNAVAILABLE, ex.getMessage());
+    }
+
+    @ExceptionHandler(GarminActivityAlreadyImportedException.class)
+    public ResponseEntity<ApiError> handleGarminActivityAlreadyImported(GarminActivityAlreadyImportedException ex) {
+        return build(HttpStatus.CONFLICT, ex.getMessage());
+    }
+
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<ApiError> handleAccessDenied(AccessDeniedException ex) {
         return build(HttpStatus.FORBIDDEN, "Access denied");

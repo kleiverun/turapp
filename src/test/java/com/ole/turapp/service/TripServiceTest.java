@@ -6,12 +6,15 @@ import com.ole.turapp.dto.TripResponse;
 import com.ole.turapp.dto.TripUpdateRequest;
 import com.ole.turapp.exception.NotFoundException;
 import com.ole.turapp.model.Role;
+import com.ole.turapp.model.TrackPoint;
 import com.ole.turapp.model.Trip;
 import com.ole.turapp.model.User;
 import com.ole.turapp.model.Visibility;
 import com.ole.turapp.repository.TrackPointRepository;
 import com.ole.turapp.repository.TripRepository;
 import com.ole.turapp.repository.UserRepository;
+import com.ole.turapp.service.FitActivityParser.ParsedActivity;
+import com.ole.turapp.service.FitActivityParser.ParsedPoint;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -21,6 +24,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.time.Instant;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -396,5 +400,67 @@ class TripServiceTest {
 
         verify(trackPointRepository, never()).deleteByTripId(any());
         verify(tripRepository, never()).delete(any());
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void testImportTrip_SavesFinishedTripAndTrackPoints() {
+        // Arrange
+        User user = new User("email@gmail.com", "hashedPassword", "user1", Role.USER);
+        Instant start = Instant.parse("2026-09-19T16:09:38Z");
+        ParsedActivity activity = new ParsedActivity("HIKING", start, start.plusSeconds(5886), 5886, 2713.3,
+                List.of(new ParsedPoint(60.04, 9.34, 652.0, start),
+                        new ParsedPoint(60.05, 9.35, null, start.plusSeconds(10))));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(tripRepository.save(any(Trip.class))).thenAnswer(inv -> {
+            Trip trip = inv.getArgument(0);
+            trip.setId(7L);
+            return trip;
+        });
+
+        // Act
+        TripResponse response = tripService.importTrip(1L, "Hiking 2026-09-19", activity, 24431089654L);
+
+        // Assert
+        ArgumentCaptor<Trip> tripCaptor = ArgumentCaptor.forClass(Trip.class);
+        verify(tripRepository).save(tripCaptor.capture());
+        Trip saved = tripCaptor.getValue();
+        assertThat(saved.getUser()).isSameAs(user);
+        assertThat(saved.getName()).isEqualTo("Hiking 2026-09-19");
+        assertThat(saved.getStartedAt()).isEqualTo(start);
+        assertThat(saved.getEndedAt()).isEqualTo(start.plusSeconds(5886));
+        assertThat(saved.getDurationSeconds()).isEqualTo(5886);
+        assertThat(saved.getDistanceMeters()).isEqualTo(2713.3);
+        assertThat(saved.getVisibility()).isEqualTo(Visibility.PRIVATE);
+        assertThat(saved.getGarminActivityId()).isEqualTo(24431089654L);
+
+        ArgumentCaptor<List<TrackPoint>> pointsCaptor = ArgumentCaptor.forClass(List.class);
+        verify(trackPointRepository).saveAll(pointsCaptor.capture());
+        List<TrackPoint> points = pointsCaptor.getValue();
+        assertThat(points).hasSize(2);
+        assertThat(points).allSatisfy(p -> assertThat(p.getTrip()).isSameAs(saved));
+        assertThat(points.get(0).getLatitude()).isEqualTo(60.04);
+        assertThat(points.get(0).getLongitude()).isEqualTo(9.34);
+        assertThat(points.get(0).getAltitude()).isEqualTo(652.0);
+        assertThat(points.get(0).getTimestamp()).isEqualTo(start);
+        assertThat(points.get(1).getAltitude()).isNull();
+
+        assertThat(response.id()).isEqualTo(7L);
+        assertThat(response.name()).isEqualTo("Hiking 2026-09-19");
+    }
+
+    @Test
+    void testImportTrip_UserDoesNotExist_ThrowsException() {
+        // Arrange
+        ParsedActivity activity = new ParsedActivity("HIKING", Instant.now(), Instant.now(), 0, 0, List.of());
+        when(userRepository.findById(900L)).thenReturn(Optional.empty());
+
+        // Act & Assert
+        assertThatThrownBy(() -> tripService.importTrip(900L, "Hiking", activity, 24431089654L))
+                .isInstanceOf(NotFoundException.class)
+                .hasMessage("Did not find user");
+
+        verify(tripRepository, never()).save(any());
+        verify(trackPointRepository, never()).saveAll(any());
     }
 }

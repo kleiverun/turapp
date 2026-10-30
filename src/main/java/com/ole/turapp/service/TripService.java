@@ -4,6 +4,7 @@ import com.ole.turapp.dto.TripCreateRequest;
 import com.ole.turapp.dto.TripEndRequest;
 import com.ole.turapp.dto.TripResponse;
 import com.ole.turapp.dto.TripUpdateRequest;
+import com.ole.turapp.model.TrackPoint;
 import com.ole.turapp.model.Trip;
 import com.ole.turapp.model.User;
 import com.ole.turapp.model.Visibility;
@@ -11,6 +12,7 @@ import com.ole.turapp.exception.NotFoundException;
 import com.ole.turapp.repository.TrackPointRepository;
 import com.ole.turapp.repository.TripRepository;
 import com.ole.turapp.repository.UserRepository;
+import com.ole.turapp.service.FitActivityParser.ParsedActivity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -49,6 +51,36 @@ public class TripService {
         Trip savedTrip = tripRepository.save(trip);
 
         return toResponse(savedTrip);
+    }
+
+    /** Saves an already finished activity (e.g. from Garmin) as a trip with all its track points. */
+    @Transactional
+    public TripResponse importTrip(Long userId, String name, ParsedActivity activity, Long garminActivityId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new NotFoundException("Did not find user"));
+
+        Trip trip = new Trip(name, user);
+        trip.setGarminActivityId(garminActivityId);
+        trip.setStartedAt(activity.startedAt());
+        trip.setEndedAt(activity.endedAt());
+        trip.setDurationSeconds(activity.durationSeconds());
+        trip.setDistanceMeters(activity.distanceMeters());
+        Trip savedTrip = tripRepository.save(trip);
+
+        List<TrackPoint> points = activity.points().stream()
+                .map(p -> {
+                    TrackPoint point = new TrackPoint(savedTrip, p.latitude(), p.longitude(), p.timestamp());
+                    point.setAltitude(p.altitude());
+                    return point;
+                })
+                .toList();
+        trackPointRepository.saveAll(points);
+
+        return toResponse(savedTrip);
+    }
+
+    public boolean isGarminActivityImported(Long userId, Long garminActivityId) {
+        return tripRepository.existsByUserIdAndGarminActivityId(userId, garminActivityId);
     }
 
     public List<TripResponse> getTripsForUser(Long userId) {
